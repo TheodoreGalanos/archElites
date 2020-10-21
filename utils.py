@@ -1,3 +1,5 @@
+from math import floor, ceil
+from random import uniform
 import numpy as np
 from scipy.spatial import cKDTree
 
@@ -6,6 +8,7 @@ import PIL.Image as Image
 import aggdraw
 
 from sklearn.metrics.pairwise import cosine_similarity
+from random import sample
 
 class Utilities:
 
@@ -29,7 +32,7 @@ class Utilities:
 		for file in ind_files:
 			genomes.append(file.split('\\')[-1].split('_')[:-1][1::2])
 
-		genome = np.array(genomes).reshape(-1, n_genes).astype(int)
+		genomes = np.array(genomes).reshape(-1, n_genes).astype(int)
 		similarity = cosine_similarity(genomes)
 
 		return similarity
@@ -116,3 +119,14 @@ class Utilities:
 			image.save(fpath)
 
 		return draw, image
+
+	@staticmethod
+	def get_poly_ids(polygons, random_genes, indgen):
+
+		if(random_genes):
+			keep_ = int(uniform(0,1))
+			poly_ids = sample(list(np.arange(0, len(polygons))), keep_)
+		else:
+			poly_ids = sample(list(np.arange(0, len(polygons))), int(len(polygons) * indgen))
+
+		return poly_ids

@@ -12,8 +12,8 @@ def evaluate_fn(experiment_folder):
 	lawson_results = glob.glob(experiment_folder + '/lawson*.npy')
 	total_area = glob.glob(experiment_folder + '/area*.npy')
 
-	lawson_sitting = []
-	lawson_dangerous = []
+	#lawson_sitting = []
+	#lawson_dangerous = []
 
 	for result, area in zip(lawson_results, total_area):
 

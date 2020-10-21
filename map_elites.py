@@ -36,9 +36,7 @@ class MapElites(ABC):
 				 bootstrap_individuals,
 				 mutation_op,
 				 mutation_args,
-				 crossover_flag,
 				 crossover_op,
-				 crossover_fun,
 				 crossover_args,
 				 n_bins,
 				 bins,
@@ -46,7 +44,6 @@ class MapElites(ABC):
 				 input_dir,
 				 log_dir,
 				 config_path,
-				 seed,
 				 minimization=True
 				 ):
 		"""
@@ -54,9 +51,7 @@ class MapElites(ABC):
 		:param n_genes: The number of different parameters in the generative model that created the geometries
 		:param n_pairs: The number of distant individuals that we want to find.
 		:param bootstrap_individuals: Number of individuals randomly generated to bootstrap the algorithm
-        :param mutation_op: Mutation function
         :param mutation_args: Mutation function arguments
-        :param crossover_flag: Flag to activate crossover behavior
         :param crossover_op: Crossover function
         :param crossover_args: Crossover function arguments
         :param bins: Bins for feature dimensions
@@ -72,9 +67,6 @@ class MapElites(ABC):
 		self.color_file = color_file
 		self.collection = Collection(input_dir, self.color_file)
 		self.cmap = util.create_cmap(color_file)
-		#set random seed
-		self.seed = seed
-		np.random.seed(self.seed)
 		self.elapsed_time = 0
 
 		self.minimization = minimization
@@ -97,10 +89,8 @@ class MapElites(ABC):
 
 		self.mutation_op = mutation_op
 		self.mutation_args = mutation_args
-		self.crossover_flag = crossover_flag
 		self.crossover_op = crossover_op
 		self.crossover_args = crossover_args
-		self.crossover_fun = crossover_fun
 		#get the number of bins for each feature dimension
 		ft_bins = [len(bin)-1 for bin in self.bins.values()]
 		ft_bins = [ft_bins[int(self.n_bins[0])], ft_bins[int(self.n_bins[1])]]
@@ -138,8 +128,6 @@ class MapElites(ABC):
 		fh.setLevel(logging.INFO)
 		self.logger.addHandler(fh)
 		self.logger.info("Configuration completed.")
-		self.logger.info(f"Using random seed {self.seed}")
-		print(f"\tUsing random seed {self.seed}")
 
 	@classmethod
 	def from_config(cls, config_path, log_dir=None, func=None, overwrite=False):
@@ -154,11 +142,6 @@ class MapElites(ABC):
 		#read configuration file
 		config = configparser.ConfigParser()
 		config.read(config_path)
-
-		#random seed
-		seed = config['mapelites'].getint('seed')
-		if not seed:
-			seed = np.random.randint(0, 100)
 
 		#collection config
 		input_dir = config['collection'].get('input_dir')
@@ -208,20 +191,8 @@ class MapElites(ABC):
 			bins[k] = b
 			it +=1
 
-		# EA OPERATORS
-		ea_operators = [func for func in dir(eaop)
-						if callable(getattr(eaop, func))
-						and not func.startswith("__", 0, 2)
-						]
-
-		#mutation and crossover ops
-		mutation_op = config['mutation']['type']
-		mutation_fun = f"{str.lower(mutation_op)}_bounded"
-		if mutation_fun not in ea_operators:
-			raise ValueError(f"Mutation operator {mutation_op} not implemented.")
-		mutation_fun = getattr(eaop, mutation_fun)
-
 		mutation_args = None
+		mutation_op = config['mutation']['type']
 		if mutation_op == "polynomial":
 			mutation_args = {
 				"eta": config['mutation'].getfloat('eta'),
@@ -230,12 +201,7 @@ class MapElites(ABC):
 				"mut_pb": config['mutation'].getfloat('mut_pb')
 			}
 
-		crossover_flag = config['crossover'].getboolean("crossover")
 		crossover_op = config['crossover']['type']
-		crossover_fun = f"{str.lower(crossover_op)}_crossover_geometry"
-		if crossover_fun not in ea_operators:
-			raise ValueError(f"Crossover operator {crossover_op} not implemented.")
-		crossover_fun = getattr(eaop, crossover_fun)
 		if crossover_op == "uniform":
 			crossover_args = {
 				"indpb": config['crossover'].getfloat('indpb'),
@@ -252,17 +218,14 @@ class MapElites(ABC):
 			iterations=iterations,
 			descriptors=descriptors,
 			bootstrap_individuals=bootstrap_individuals,
-			mutation_op=mutation_fun,
+			mutation_op=mutation_op,
 			mutation_args=mutation_args,
-			crossover_flag=crossover_flag,
 			crossover_op=crossover_op,
-			crossover_fun=crossover_fun,
 			crossover_args=crossover_args,
 			minimization=minimization,
 			plot_args=plot_args,
 			log_dir=log_dir,
 			config_path=config_path,
-			seed=seed,
 			n_bins=n_bins,
 			bins=bins
 		)
@@ -318,9 +281,10 @@ class MapElites(ABC):
 
 			ind2 = Offspring(polygons2, colors2, heights2, self.size, parent_ids2)
 
-		offspring = eaop.uniform_crossover_geometry(ind1, ind2, self.crossover_args["indgen"]+mut_gen, self.crossover_args["indpb"], parent_ids=[ind1.parent_ids, ind2.parent_ids], random_genes=True)
-
-		return offspring
+		#offspring = eaop.uniform_crossover_geometry(ind1, ind2, self.crossover_args["indgen"]+mut_gen, self.crossover_args["indpb"], parent_ids=[ind1.parent_ids, ind2.parent_ids], random_genes=True)
+		offspring_1, offspring_2 = eaop.uniform_crossover_geometry(ind1, ind2, self.crossover_args["indgen"]+mut_gen, self.crossover_args["indpb"], parent_ids=[ind1.parent_ids, ind2.parent_ids], random_genes=True)
+		#return offspring
+		return offspring_1, offspring_2
 
 	def random_selection(self, individuals=1):
 		"""
@@ -387,25 +351,6 @@ class MapElites(ABC):
 		return x_selected, y_selected
 
 
-	def similarity_based_crossover(self):
-		"""
-		Bootstrap the algorithm by generating `self.bootstrap_individuals` individuals from a collection of individuals.
-		"""
-		self.logger.info("Generating initial population from the collection")
-		similarity_matrix = util.genetic_similarity(self.collection.points, self.n_genes)
-		diverse_inds = util.diverse_pairs(similarity_matrix, self.n_pairs)
-		population_ids = list(np.arange(0, (len(collection.points))))
-		seed_ids = random.sample(population_ids, self.bootstrap_individuals)
-
-		for id in seed_ids:
-			pair_ids = diverse_inds[id]
-			ind1 = Individual(collection, id, self.cmap)
-			pairs = [Individual(collection, id_, self.cmap) for id_ in pair_ids]
-			offsprings = eaop.uniform_crossover_geometry_similarity(ind1, pairs, self.crossover_args["indgen"], self.crossover_args["indpb"])
-			for offspring in offsprings:
-				self.place_in_mapelites(offspring)
-
-
 	def place_in_mapelites(self, x, pbar=None, init=True, iteration=None):
 		"""
 		Puts a solution inside the N-dimensional map of elites space.
@@ -425,7 +370,7 @@ class MapElites(ABC):
 		# save the parent id of the individual
 		x.grid_position = [x_bin, y_bin]
 		# performance of the optimization function
-		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, fpath='./inferences_server/inferences/individual.png', exp_folder='F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences')
+		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, fpath=r'./inferences_server/inferences/individual.png', exp_folder=r'F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences')
 		# save individual performance
 		x.sitting = sitting_area
 		x.dangerous = dangerous_area
@@ -485,7 +430,7 @@ class MapElites(ABC):
 		"""
 
 		#get coordinates in the feature space from individual's performance
-		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, fpath='./inferences_server/inferences/individual.png', exp_folder='F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences')
+		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, fpath=r'./inferences_server/inferences/individual.png', exp_folder=r'F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences')
 		#get coordinates in the feature space
 		x_bin, y_bin = self.map_x_to_b_inference(sitting_area, dangerous_area)
 		#x_bin, y_bin = self.map_x_to_b_inference(sitting*100, dangerous*100)
@@ -652,35 +597,34 @@ class MapElites(ABC):
 
 		outter_bar = tqdm(total=self.iterations, desc="Iterations completed", position = 0, leave = True)
 		outter_loop = range(0, self.iterations)
-		#inner_bar = tqdm(total=5, desc="Offsprings produced", position = 1, leave = True)
-		inner_loop = range(0, 500)
+		inner_loop = range(0, 15)
 
-		# tqdm: progress bar
 		for i in outter_loop:
-	#with tqdm(total=self.iterations, desc="Iterations completed") as pbar:
-		#for i in range(0, self.iterations):
 			# create the save folder for the generation
-			folder = fpath = self.log_dir_path / 'genomes' / 'generation_{}'.format(i)
+			folder = self.log_dir_path / 'genomes' / 'generation_{}'.format(i)
 			folder.mkdir(parents=True, exist_ok=True)
 			for j in inner_loop:
-			#for j in range(0, 100):
 			# create more diverse mutations
 				if (j%2 == 0):
 					self.logger.debug(f"ITERATION {i} - Individual {j}")
 					self.logger.debug("Select and mutate.")
 					# get the number of elements that have already been initialized
-					offspring = self.crossover(individuals=2, iteration=i, mut_gen=0.25, curiosity=True)
-					offspring_mut = eaop.polynomial_bounded(offspring, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring.heights))
+					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=0.25)#, curiosity=True)
+					offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
+					offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
 					# place the new individual in the map of elites
-					self.place_in_mapelites(offspring_mut, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					self.place_in_mapelites(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					self.place_in_mapelites(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
 				else:
 					self.logger.debug(f"ITERATION {i} - Individual {j}")
 					self.logger.debug("Select and mutate.")
 					# get the number of elements that have already been initialized
-					offspring = self.crossover(individuals=2, iteration=i, mut_gen=-0.25)#, curiosity=True)
-					offspring_mut = eaop.polynomial_bounded(offspring, self.cmap, eta=20, low=5.0, up=100.0, mut_pb=1/len(offspring.heights))
+					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=-0.25)#, curiosity=True)
+					offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
+					offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
 					# place the new individual in the map of elites
-					self.place_in_mapelites(offspring_mut, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					self.place_in_mapelites(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					self.place_in_mapelites(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
 
 			#inner_bar.reset()
 			self.plot_map_of_elites(iteration=i)

@@ -164,22 +164,3 @@ def plot_heatmap(data,
     if interactive:
         plt.show()
     plt.close()
-
-
-def _test_plotting():
-    """
-    Test plot utils by calling this module directly
-    """
-    # Generate some random data
-    values = np.reshape(np.random.random((5, 5)), (-1,))
-    # The two axis must be represented as strings
-    x_ax = ['0', '1', '2', '3', '4']
-    y_ax = ['5', '6', '7', '8', '9']
-
-    data = np.stack([np.repeat(x_ax, len(y_ax)), np.tile(y_ax, len(x_ax)), values], axis=1)
-
-    plot_heatmap(data, x_ax, y_ax)
-
-
-if __name__ == "__main__":
-    _test_plotting()

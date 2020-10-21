@@ -22,9 +22,9 @@ class Collection:
 		self.color_file = color_file
 
 		#adding files that include individuals' genetic information to the collection
-		self.points = glob.glob(folder  + "\points\*.npy", recursive=False)
-		self.heights = glob.glob(folder + "\heights\*.npy", recursive=False)
-		self.splits = glob.glob(folder +  "\splits\*.npy", recursive=False)
+		self.points = glob.glob(folder  + r"\points\*.npy", recursive=False)
+		self.heights = glob.glob(folder + r"\heights\*.npy", recursive=False)
+		self.splits = glob.glob(folder +  r"\splits\*.npy", recursive=False)
 
 		#couple of sanity checks to make sure a proper collection location was passed as an argument
 		if (len(self.points)) == len(self.heights) == len(self.splits) == 0:

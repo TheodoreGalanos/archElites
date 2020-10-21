@@ -41,7 +41,7 @@ class Geometry:
 		:param target_polygons: A collection of shapely polygons.
 		"""
 		intersect_booleans = []
-		for i, poly in enumerate(target_polygons):
+		for _, poly in enumerate(target_polygons):
 			intersect_booleans.append(seed_polygon.intersects(poly))
 
 		return intersect_booleans
