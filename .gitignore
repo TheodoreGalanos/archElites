@@ -128,7 +128,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Log files
-logs
-to_fix
-.vscode
+#Other
+to_fix/
+.vscode/
