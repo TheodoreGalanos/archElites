@@ -129,5 +129,6 @@ dmypy.json
 .pyre/
 
 # Log files
-/logs
-/to_fix
+logs
+to_fix
+.vscode
