@@ -51,11 +51,13 @@ def plot_heatmap(data,
     df_data.replace([np.inf, -np.inf], np.nan, inplace=True)
 
     mask = df_data.isnull()
-    x_ticks = np.arange(0, 8.16, 0.16)
-    x_ticks = [str(x)[:4] for x in x_ticks]
+    #x_ticks = np.arange(0, 6, 0.16)
+    x_ticks = np.arange(0, 63750, 1250)
+    x_ticks = [str(x)[:5] for x in x_ticks]
 
-    y_ticks = np.arange(0, 0.714, 0.014)
-    y_ticks = [str(x)[:4] for x in y_ticks]
+    #y_ticks = np.arange(0, 0.714, 0.014)
+    y_ticks = np.arange(0, 63750, 1250)
+    y_ticks = [str(x)[:5] for x in y_ticks]
 
     cmap_reversed = matplotlib.cm.get_cmap('YlGnBu_r')
     ax = sns.heatmap(
@@ -154,8 +156,8 @@ def plot_heatmap(data,
     """
     #plt.xlabel('Open space considered suitable for long term sitting (m2)', fontsize=10)
     #plt.ylabel('Open space considered dangerous for pedestrians (m2)', fontsize=10)
-    plt.xlabel('Floor Space Index', fontsize=10)
-    plt.ylabel('Ground Space Index', fontsize=10)
+    plt.xlabel('% of open space that is suitable for long term sitting', fontsize=15)
+    plt.ylabel('% of open space that is dangerous for pedestrians', fontsize=15)
     # get figure to save to file
     if savefig_path:
         ht_figure = ax.get_figure()

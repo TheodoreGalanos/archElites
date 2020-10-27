@@ -28,7 +28,8 @@ class MapElites(ABC):
 	def __init__(self,
 			     size,
 				 color_file,
-				 n_genes,
+				 wind_dir,
+				 wind_dir_names,
 				 n_pairs,
 				 n_curious,
 				 iterations,
@@ -42,13 +43,15 @@ class MapElites(ABC):
 				 bins,
 				 plot_args,
 				 input_dir,
+				 exp_dir,
 				 log_dir,
 				 config_path,
 				 minimization=True
 				 ):
 		"""
 		:param iterations: Number of evolutionary iterations
-		:param n_genes: The number of different parameters in the generative model that created the geometries
+		:param wind_dir: The different wind directions (in angles from South wind) included in the study.
+		:param wind_dir_names: The names of the wind directions included in the study.
 		:param n_pairs: The number of distant individuals that we want to find.
 		:param bootstrap_individuals: Number of individuals randomly generated to bootstrap the algorithm
         :param mutation_args: Mutation function arguments
@@ -60,8 +63,10 @@ class MapElites(ABC):
 
 		#collection specific
 		self.input_dir = input_dir
+		self.exp_dir = exp_dir
 		self.size = size
-		self.n_genes = n_genes
+		self.wind_dir = wind_dir
+		self.wind_dir_names = wind_dir_names
 		self.n_pairs = n_pairs
 		self.n_curious = n_curious
 		self.color_file = color_file
@@ -117,6 +122,9 @@ class MapElites(ABC):
 		#create initial population dir
 		genomes = self.log_dir_path / 'genomes' / 'initial_population'
 		genomes.mkdir(parents=True, exist_ok=True)
+		#create performance dir
+		performances = self.log_dir_path / 'performances'
+		performances.mkdir(parents=True, exist_ok=True)
 		#save config file
 		copyfile(config_path, self.log_dir_path / 'config.ini')
 
@@ -145,11 +153,13 @@ class MapElites(ABC):
 
 		#collection config
 		input_dir = config['collection'].get('input_dir')
+		exp_dir = config['collection'].get('exp_dir')
 		color_file = config['collection'].get('color_file')
 		size_x = config['collection'].getint('size_x')
 		size_y = config['collection'].getint('size_y')
 		size = (size_x, size_y)
-		n_genes = config['collection'].getint('n_genes')
+		wind_dir = config['collection'].get('wind_dir').split(',')
+		wind_dir_names = config['collection'].get('wind_dir_names').split(',')
 		n_pairs = config['collection'].getint('n_pairs')
 
 		#main mapelites config
@@ -209,11 +219,13 @@ class MapElites(ABC):
 			}
 
 		return cls(
-			n_genes=n_genes,
+			wind_dir=wind_dir,
+			wind_dir_names=wind_dir_names,
 			n_pairs=n_pairs,
 			n_curious=n_curious,
 			size=size,
 			input_dir=input_dir,
+			exp_dir=exp_dir,
 			color_file=color_file,
 			iterations=iterations,
 			descriptors=descriptors,
@@ -370,7 +382,7 @@ class MapElites(ABC):
 		# save the parent id of the individual
 		x.grid_position = [x_bin, y_bin]
 		# performance of the optimization function
-		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, fpath=r'./inferences_server/inferences/individual.png', exp_folder=r'F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences')
+		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, folder=self.exp_dir)
 		# save individual performance
 		x.sitting = sitting_area
 		x.dangerous = dangerous_area
@@ -430,7 +442,7 @@ class MapElites(ABC):
 		"""
 
 		#get coordinates in the feature space from individual's performance
-		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, fpath=r'./inferences_server/inferences/individual.png', exp_folder=r'F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences')
+		sitting, dangerous, sitting_area, dangerous_area = self.performance_measure(x, folder=self.exp_dir)
 		#get coordinates in the feature space
 		x_bin, y_bin = self.map_x_to_b_inference(sitting_area, dangerous_area)
 		#x_bin, y_bin = self.map_x_to_b_inference(sitting*100, dangerous*100)
@@ -534,22 +546,25 @@ class MapElites(ABC):
 
 		return x_bin, y_bin
 
-	def performance_measure(self, x, fpath, exp_folder):
+	def performance_measure(self, x, folder):
 		"""
 		Function to evaluate solution x and give a performance measure
 		:param x: genotype of a solution
 		:return: performance measure of that solution
 		"""
-		#NOTE: FIX THE TWO DIFFERENT RUN_INF SCRIPTS, one for init and one for a pair.
-
+		
+		# first generate all wind directions for the selected individual
 		image = x.draw_image()
-		image.save(r'F:\PhD_Research\CaseStudies\MAP-Elites\pv_urban\inference_server\minimal-ml-serverCPU\inferences\individual.png')
+		imgs = []
+		for dir_ in self.wind_dir:
+			img = util.rotate_input(image, int(dir_))
+			img.save(folder + '\\individual_{}.png'.format(dir_))
 		run_inf()
-		sitting, dangerous, sitting_area, dangerous_area = evaluate_fn(exp_folder)
+		sitting, dangerous, sitting_area, dangerous_area = evaluate_fn(self.exp_dir)
 
 		return sitting, dangerous, sitting_area, dangerous_area
 
-	def save_logs(self):
+	def save_logs(self, iteration):
 		"""
 		Save logs, config file, individuals, and data structures to log folder.
 
@@ -558,7 +573,7 @@ class MapElites(ABC):
 
 		self.logger.info(f"Running time {time.strftime('%H:%M:%S', time.gmtime(self.elapsed_time))}")
 
-		np.save(self.log_dir_path / 'performances', self.performances)
+		np.save(self.log_dir_path / 'performances' / 'performances_{}'.format(iteration), self.performances)
 		#np.save(self.log_dir_path / "solutions", self.solutions)
 		np.save(self.log_dir_path / 'curiosity', self.curiosity_score)
 
@@ -577,10 +592,10 @@ class MapElites(ABC):
 					 x_ax,
 					 y_ax,
 					 v_min=0.0,
-					 v_max=1.0,
+					 v_max=8.0,
 					 savefig_path=self.log_dir_path,
 					 iteration=iteration,
-					 title=f"Urban Comfort QD Map of Elites",
+					 title=f"MAP-Elites for the city of Boston",
 					 **self.plot_args)
 
 	def get_elapsed_time(self):
@@ -592,12 +607,12 @@ class MapElites(ABC):
 		"""
 		start_time = time.time()
 		# start by creating an initial set of random solutions
-		self.generate_initial_population(inference=False)
+		self.generate_initial_population(inference=True)
 		self.plot_map_of_elites(iteration='initial')
 
 		outter_bar = tqdm(total=self.iterations, desc="Iterations completed", position = 0, leave = True)
 		outter_loop = range(0, self.iterations)
-		inner_loop = range(0, 15)
+		inner_loop = range(0, 500)
 
 		for i in outter_loop:
 			# create the save folder for the generation
@@ -609,23 +624,26 @@ class MapElites(ABC):
 					self.logger.debug(f"ITERATION {i} - Individual {j}")
 					self.logger.debug("Select and mutate.")
 					# get the number of elements that have already been initialized
-					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=0.25)#, curiosity=True)
-					offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
-					offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
+					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=0.25)
+					if(random.uniform(0, 1) < 0.5):
+						offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
+						self.place_in_mapelites_with_inference(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					else:
+						offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
+						self.place_in_mapelites_with_inference(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
 					# place the new individual in the map of elites
-					self.place_in_mapelites(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
-					self.place_in_mapelites(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
 				else:
 					self.logger.debug(f"ITERATION {i} - Individual {j}")
 					self.logger.debug("Select and mutate.")
 					# get the number of elements that have already been initialized
 					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=-0.25)#, curiosity=True)
-					offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
-					offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
-					# place the new individual in the map of elites
-					self.place_in_mapelites(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
-					self.place_in_mapelites(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
-
+					if(random.uniform(0, 1) < 0.5):
+						offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
+						self.place_in_mapelites_with_inference(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					else:
+						offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
+						self.place_in_mapelites_with_inference(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+			self.save_logs(iteration=i)
 			#inner_bar.reset()
 			self.plot_map_of_elites(iteration=i)
 			outter_bar.update(1)
@@ -633,5 +651,5 @@ class MapElites(ABC):
 		# save results, display metrics and plot statistics
 		end_time = time.time()
 		self.elapsed_time = end_time - start_time
-		self.save_logs()
+		self.save_logs(iteration=i+1)
 		self.plot_map_of_elites(iteration=self.iterations)
