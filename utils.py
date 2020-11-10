@@ -15,7 +15,15 @@ class Utilities:
 
 	@staticmethod
 	def calc_std(attribute):
+		"""
+		Calcualte standard deviation of an input array.
 
+		Args:
+			attribute (array): An array of specific individual attributes.
+
+		Returns:
+			float: Standard deviation of input values.
+		"""
 		std = np.std(attribute)
 
 		return std
@@ -25,8 +33,15 @@ class Utilities:
 		"""
 		Calculates similarity between individuals created in Grasshopper, using information
 		(input parameters) saved in each individual's name convention.
-		:param ind_files: A Collection of individuals generated through grasshopper.
-		:param n_genes: The total number of parameters in the Grasshopper parametric model.
+		:param ind_files:
+		:param n_genes: 
+
+		Args:
+			ind_files (list):  A Collection of individuals generated through grasshopper.
+			n_genes (int): The total number of parameters in the Grasshopper parametric model.
+
+		Returns:
+			array: An array of the cosine similarity between all input individuals.
 		"""
 		genomes = []
 		for file in ind_files:
@@ -42,20 +57,30 @@ class Utilities:
 		"""
 		A function to find the indices of a specified number of individuals, for each parent, which
 		are as different as possible from the parent, based on their genetic similarity.
-		:param similarity_matrix: The similarity matrix computed for all individuals.
-		:param n_pairs: The number of most dissimilar individuals to find for each parent.
-		"""
-		diverse_pairs = []
-		for ind in similarity_matrix:
-			diverse_pairs.append(np.argpartition(ind, n_pairs)[:n_pairs])
 
-		return diverse_pairs
+		Args:
+			similarity_matrix (array): The similarity matrix computed for all individuals.
+			n_pairs (int): The number of most dissimilar individuals to find for each parent.
+
+		Returns:
+			int: The indices of the least similar individuals.
+		"""
+		pairs = []
+		for ind in similarity_matrix:
+			pairs.append(np.argpartition(ind, n_pairs)[:n_pairs])
+
+		return pairs
 
 	@staticmethod
 	def create_cmap(color_file):
 		"""
 		Creates an RGB color map out of a list of color values
-		:param color_file: A csv file of the color gradient used to generate the heightmaps.
+
+		Args:
+			color_file (string): A csv file of the color gradient used to generate the heightmaps.
+
+		Returns:
+			array: An array of RGB values representing the colors for each height in the collection's range of heights.
 		"""
 		colors = np.loadtxt(color_file, dtype=str)
 		cmap = []
@@ -70,8 +95,13 @@ class Utilities:
 	def height_to_color(cmap, height):
 		"""
 		Translates a building height value to a color, based on the given color map.
-		:param cmap: A color map.
-		:param height: A building height
+
+		Args:
+			cmap (array): An array of RGB values representing the colors for each height in the collection's range of heights.
+			height (float): A building height.
+
+		Returns:
+			tuple: The (R, G, B) value that corresponds to the specific input height.
 		"""
 		if(height > len(cmap)-1):
 			color_value = 0
@@ -94,11 +124,17 @@ class Utilities:
 	def draw_polygons(polygons, colors, im_size=(512, 512), b_color="white", fpath=None):
 		"""
 		A function that draws a PIL image of a collection of polygons and colors.
-		:param polygons: A list of shapely polygons.
-		:param colors: A list of R, G, B values for each polygon.
-		:param im_size: The size of the input geometry.
-		:param b_color: The color of the image background.
-		:param fpath: The file path to use if saving the image to disk.
+
+		Args:
+			polygons (list): A list of shapely polygons.
+			colors (list): A list of R, G, B values for each polygon.
+			im_size (tuple, optional): The size, in pixels, of the individual. Defaults to (512, 512).
+			b_color (str, optional): The color of the individual's background.. Defaults to "white".
+			fpath (string, optional): The file path to use when saving the image to disk. Defaults to None.
+
+		Returns:
+			draw: An aggdraw object of the individual.
+			image: A PIL image of the individual.
 		"""
 		image = Image.new("RGB", im_size, color=b_color)
 		draw = aggdraw.Draw(image)
@@ -121,8 +157,18 @@ class Utilities:
 		return draw, image
 
 	@staticmethod
-	def get_poly_ids(polygons, random_genes, indgen):
+	def get_poly_ids(polygons, random_genes=False, indgen):
+		"""
+		A function that selects random polygons from an input list of polygons.
 
+		Args:
+			polygons (list): A list of polygons
+			random_genes (float, optional): Whether to select a random number of polygons, bypassing indgen.
+			indgen (float): The minimum percentage of input polygons to select.
+
+		Returns:
+			list: A list of polygon ids.
+		"""
 		if(random_genes):
 			keep_ = int(uniform(0,1))
 			poly_ids = sample(list(np.arange(0, len(polygons))), keep_)
@@ -133,9 +179,18 @@ class Utilities:
 
 	@staticmethod
 	def rotate_input(pil_img, degrees, interval=512):
-		"""Method to rotate image by `degrees` in a COUNTER-CLOCKWISE direction.
+		"""
+		Method to rotate image by `degrees` in a COUNTER-CLOCKWISE direction.
 		As some rotations cause the corners of the original image to be cropped,
 		the `interval` argument allows the image to expand in size.
+
+		Args:
+			pil_img (PIL.Image): A PIL image of the individual.
+			degrees (int): The degrees of rotation.
+			interval (int, optional): The interval to use while rotating the image. Defaults to 512.
+
+		Returns:
+			PIL image: A rotated image of the input individual.
 		"""
 		def next_interval(current):
 			c = int(current)

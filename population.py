@@ -12,10 +12,16 @@ class Collection:
 		A class to create a collection of individuals based on the genetic information extracted
 		from the generative grasshopper model.
 
-		:param folder: The location where the genetic information of the individuals are stored.
-		:param color_file: The location where the color file for the collection was stored.
-		"""
+		Args:
+			folder (string): The location where the genetic information of the individuals are stored.
+			color_file (string): The location where the color file for the collection was stored.
+			gh_vectors (bool, optional): Whether it should extract genome information stored in the filename
+										 convention during generation in Grasshopper. Defaults to False.
 
+		Raises:
+			ValueError: Collection folder is empty.
+			ValueError: A collection requires the same number of points, heights, and splits values.
+		"""
 		#the location where individuals were stored
 		self.folder = folder
 		#the location where the color file was stored
@@ -48,13 +54,13 @@ class Individual:
 		"""
 		A class to create an individual, along with its properties, out of the provided collection.
 
-		:param id_: The indice of the individual in the collection
-		:param cmap: The color gradient map that represents heights into colors, as it was extracted from
-		the grasshopper model.
-		:param size: The extend of the bounding box of an individual, in meters. Used to generate appropriate
-		image outputs.
+		Args:
+			collection (Collection): A collection of individuals.
+			id_ (int): The indice of the individual in the collection.
+			cmap (list): The color gradient map that represents heights into colors.
+			size ([type]): The extend of the bounding box of an individual, in meters. Used to generate appropriate
+						   image outputs.
 		"""
-
 		self.collection = collection
 		self.id_ = id_
 		self.size = size
@@ -80,13 +86,23 @@ class Individual:
 		self.sitting = None
 
 	def draw_image(self):
+		"""
+		Draws a png image of the individual.
 
+		Returns:
+			image: A png image of the individual.
+		"""
 		_, image = geom.draw_polygons(self.polygons, self.colors, self.size)
 
 		return image
 
 	def save_to_disk(self, fname):
+		"""
+		Saves an individual and its properties to the hard drive.
 
+		Args:
+			fname (string): The filename the individual will be saved with.
+		"""
 		data = {'polygons': self.polygons, 'heights': self.heights,
 				'colors': self.colors, 'footprints:': self.footprints,
 				'features': self.features, 'parent_id': self.parent_ids,
@@ -102,13 +118,14 @@ class Offspring:
 		A class to create an offspring, along with its properties, out of the crossover or mutation
 		of individuals.
 
-		:param polygons: The polygons of the evolved individual.
-		:param colors: The color of the evolved individual.
-		:param heights: The heights of the evolved individual.
-		:param size: The extend of the bounding box of an individual, in meters. Used to generate appropriate
-		image outputs.
+		Args:
+			polygons (list): The polygons of the evolved individual.
+			colors (list): The colors of the evolved individual.
+			heights (list): The heights of the evolved individual.
+			size (tuple): The extend of the bounding box of an individual, in meters. Used to generate appropriate
+						   image outputs.
+			parent_ids (tuple, int): The id numbers of the individual's parents.
 		"""
-
 		# assign genome
 		self.colors  = colors
 		self.polygons = polygons
@@ -130,13 +147,23 @@ class Offspring:
 		self.fi_fitness = None
 
 	def draw_image(self):
+		"""
+		Draws a png image of the individual.
 
+		Returns:
+			image: A png image of the individual.
+		"""
 		_, image = geom.draw_polygons(self.polygons, self.colors, self.size)
 
 		return image
 
 	def save_to_disk(self, fname):
+		"""
+		Saves an individual and its properties to the hard drive.
 
+		Args:
+			fname (string): The filename the individual will be saved with.
+		"""
 		data = {'polygons': self.polygons, 'heights': self.heights,
 				'colors': self.colors, 'footprints:': self.footprints,
 				'features': self.features, 'parent_id': self.parent_ids,

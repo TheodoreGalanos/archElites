@@ -10,7 +10,12 @@ class Geometry:
 	def create_path(polygon):
 		"""
 		A function that splits a series of polygon points into an (x, y) array of coordinates.
-		:param polygon: A polygon (i.e. array of x, y sequences) creates by a design software or extracted from a geometry file.
+
+		Args:
+			polygon (array): a sequence of x, y points describing a building outline
+
+		Returns:
+			array: a sequence of points (x, y) defining a building outline.
 		"""
 		x_coords = polygon[0::2]
 		y_coords = polygon[1::2]
@@ -21,8 +26,13 @@ class Geometry:
 	def create_shapely_polygons(points, splits):
 		"""
 		A function that generates shapely polygons out of points and splits (indices on where to split the points) of each individual.
-		:param points: a list of points for each individual.
-		:param splits: a list of indices that show where to split the point list in order to create individual polygons.
+
+		Args:
+			points (list): a list of all the points for each individual.
+			splits (list): a list of indices that show where to split the point list in order to create individual polygons.
+
+		Returns:
+			array: an array of all shapely polygons (buildings) of the individual.
 		"""
 		polygons = np.array(np.vsplit(points.reshape(-1, 1), np.cumsum(splits)))[:-1]
 
@@ -36,9 +46,14 @@ class Geometry:
 	@staticmethod
 	def find_intersections(seed_polygon, target_polygons):
 		"""
-		A function that finds intersections between a seed polygon and a list of candidate polygons.
-		:param seed_polygon: A shapely polygon.
-		:param target_polygons: A collection of shapely polygons.
+			A function that finds intersections between a seed polygon and a list of candidate polygons.
+
+		Args:
+			seed_polygon (shapely polygon): A shapely polygon.
+			target_polygons (list): A list of shapely polygons.
+
+		Returns:
+			array: The intersection matrix between the seed polygon and all individual target polygons.
 		"""
 		intersect_booleans = []
 		for _, poly in enumerate(target_polygons):
@@ -49,8 +64,13 @@ class Geometry:
 	@staticmethod
 	def centroids(polygons):
 		"""
-		A function that calculates the centroids of a collection of shapely polygons.
-		:param polygons: A collection of shapely polygons.
+			A function that calculates the centroids of a collection of shapely polygons.
+
+		Args:
+			polygons (list): A list of shapely polygons.
+
+		Returns:
+			list: a list of centroids for all polygons.
 		"""
 		centroids = []
 		for polygon in polygons:
@@ -64,14 +84,20 @@ class Geometry:
 	@staticmethod
 	def get_features(footprints, heights, boundary=(512, 512), b_color="white"):
 		"""
-		Calculates urban features for a set of footprints and heights. Features include:
-		floor space index (FSI): gross floor area / area of aggregation
-		ground space index (GSI): footprint / area of aggregation
-		oper space ratio (OSR): (1-GSI)/FSI
-		building height (L): FSI/GSI
-		tare (T): (area of aggregation - footprint) / area of aggregation
-		:param footprints: list of areas for each building of an individual
-		:param heights: list of heights for each building of an individual
+		Calculates urban density and network features for a set of footprints and heights.
+
+		Args:
+			footprints (list): A list of floor areas for each building of an individual.
+			heights ([type]): A list of heights for each building of an individual.
+			boundary (tuple, optional): The size of each individual in pixels. Defaults to (512, 512).
+			b_color (str, optional): The background color (ground color) for each individual. Defaults to "white".
+
+		Returns:
+			float: floor space index (FSI), calculated using -> gross_floor_area / area_of_aggregation
+			float: ground space index (GSI), calculated using -> footprint / area_of_aggregation
+			float: oper space ratio (OSR), calculated using -> (1-GSI)/FSI
+			float: building height (L), calculated using -> FSI/GSI
+			float: tare (T), calculated using -> (area_of_aggregation - footprint) / area_of_aggregation
 		"""
 		#calculate aggregation A
 		area_of_aggregation = boundary[0] * boundary[1]

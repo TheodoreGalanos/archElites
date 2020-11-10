@@ -19,4 +19,4 @@ def run_inf(port=5559, host='127.0.0.1', timeout=1000):
 		#print(f'Sending request...')
 
 		data = s.recv(1024).decode()
-		print (data)
+		#print (data)

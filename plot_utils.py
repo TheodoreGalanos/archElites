@@ -53,10 +53,12 @@ def plot_heatmap(data,
     mask = df_data.isnull()
     #x_ticks = np.arange(0, 6, 0.16)
     x_ticks = np.arange(0, 63750, 1250)
+    #x_ticks = np.arange(0, 104, 4)
     x_ticks = [str(x)[:5] for x in x_ticks]
 
     #y_ticks = np.arange(0, 0.714, 0.014)
     y_ticks = np.arange(0, 63750, 1250)
+    #y_ticks = np.arange(0, 104, 4)
     y_ticks = [str(x)[:5] for x in y_ticks]
 
     cmap_reversed = matplotlib.cm.get_cmap('YlGnBu_r')

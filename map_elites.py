@@ -489,7 +489,7 @@ class MapElites(ABC):
 
 		if pbar is not None:
 			sleep(0.5)
-			pbar.update(1)
+			pbar.update()
 
 	def map_x_to_b_inference(self, x_metric, y_metric):
 		"""
@@ -555,7 +555,6 @@ class MapElites(ABC):
 		
 		# first generate all wind directions for the selected individual
 		image = x.draw_image()
-		imgs = []
 		for dir_ in self.wind_dir:
 			img = util.rotate_input(image, int(dir_))
 			img.save(folder + '\\individual_{}.png'.format(dir_))
@@ -592,7 +591,7 @@ class MapElites(ABC):
 					 x_ax,
 					 y_ax,
 					 v_min=0.0,
-					 v_max=8.0,
+					 v_max=5.0,
 					 savefig_path=self.log_dir_path,
 					 iteration=iteration,
 					 title=f"MAP-Elites for the city of Boston",
@@ -612,41 +611,29 @@ class MapElites(ABC):
 
 		outter_bar = tqdm(total=self.iterations, desc="Iterations completed", position = 0, leave = True)
 		outter_loop = range(0, self.iterations)
-		inner_loop = range(0, 500)
+		inner_loop = range(0, 100)
 
 		for i in outter_loop:
 			# create the save folder for the generation
 			folder = self.log_dir_path / 'genomes' / 'generation_{}'.format(i)
 			folder.mkdir(parents=True, exist_ok=True)
 			for j in inner_loop:
-			# create more diverse mutations
+				self.logger.debug(f"ITERATION {i} - Individual {j}")
+				self.logger.debug("Select and mutate.")
+				# create more diverse mutations
 				if (j%2 == 0):
-					self.logger.debug(f"ITERATION {i} - Individual {j}")
-					self.logger.debug("Select and mutate.")
-					# get the number of elements that have already been initialized
-					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=0.25)
-					if(random.uniform(0, 1) < 0.5):
-						offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
-						self.place_in_mapelites_with_inference(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
-					else:
-						offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
-						self.place_in_mapelites_with_inference(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
-					# place the new individual in the map of elites
+					offspring_1, _ = self.crossover(individuals=2, iteration=i, mut_gen=0.25)
 				else:
-					self.logger.debug(f"ITERATION {i} - Individual {j}")
-					self.logger.debug("Select and mutate.")
-					# get the number of elements that have already been initialized
-					offspring_1, offspring_2 = self.crossover(individuals=2, iteration=i, mut_gen=-0.25)#, curiosity=True)
-					if(random.uniform(0, 1) < 0.5):
-						offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
-						self.place_in_mapelites_with_inference(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
-					else:
-						offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
-						self.place_in_mapelites_with_inference(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+					offspring_1, _ = self.crossover(individuals=2, iteration=i, mut_gen=-0.25)
+				# place the individual in the map, if it is an elite
+				offspring_mut_1 = eaop.polynomial_bounded(offspring_1, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_1.heights))
+				self.place_in_mapelites_with_inference(offspring_mut_1, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
+				#offspring_mut_2 = eaop.polynomial_bounded(offspring_2, self.cmap, eta=20.0, low=5.0, up=100.0, mut_pb=1/len(offspring_2.heights))
+				#self.place_in_mapelites_with_inference(offspring_mut_2, pbar=outter_bar.set_postfix(inner_loop=j, refresh=True), init=False, iteration=i)
 			self.save_logs(iteration=i)
 			#inner_bar.reset()
 			self.plot_map_of_elites(iteration=i)
-			outter_bar.update(1)
+			outter_bar.update()
 
 		# save results, display metrics and plot statistics
 		end_time = time.time()

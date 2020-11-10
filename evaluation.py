@@ -2,18 +2,25 @@ import glob
 import numpy as np
 
 def evaluate_fn(experiment_folder):
-	"""
-	A function that calculates fitness values for the individuals that were just infereced
+	"""A function that calculates fitness values for the individuals that were just infereced
 	by the pretrained model. Note: hardcoded for now in the server code.
-	:param experiment_folder: The folder where the inference data is saved in.
+	:param experiment_folder: 
+
+	Args:
+		experiment_folder (string): The folder where the inference data is saved in.
+
+	Returns:
+		sitting_percentage: float, the percentage of area with comfortable conditions
+		dangerous_percentage: float, the percentage of area with dangerous conditions
+		sitting: float, the total area with comfortable conditions
+		dangerous: float, the total area with comfortable conditions
 	"""
 
-	#get inference data from the experiment folder
-	#lawson_results = glob.glob(experiment_folder + '/yearly_lawson.npy')
-	#total_area = glob.glob(experiment_folder + '/area_0.npy')
+	# load inference results
 	lawson_results = np.load(experiment_folder + '/yearly_lawson.npy')
 	total_area = np.load(experiment_folder + '/area_0.npy')
 
+	# calculate comfort category values and comfortable/dangerous conditions
 	unique, counts = np.unique(lawson_results, return_counts=True)
 
 	try:
@@ -26,11 +33,12 @@ def evaluate_fn(experiment_folder):
 	except:
 		dangerous = 0
 
+	# scale to percentage
 	sitting_percentage = (sitting / total_area.item()) * 100
 	dangerous_percentage = (dangerous / total_area.item()) * 100
 
-	#lawson_sitting.append(sitting_percentage)
-	#lawson_dangerous.append(dangerous_percentage)
+	# scale to 250 x 250 extent (image resolution is 512 x 512, 4.2 times larger)
+	sitting = sitting / 4.2
+	dangerous = dangerous / 4.2
 
-	return sitting_percentage, dangerous_percentage, sitting/4.2, dangerous/4.2
-	#return lawson_sitting, lawson_dangerous, sitting, dangerous
+	return sitting_percentage, dangerous_percentage, sitting, dangerous

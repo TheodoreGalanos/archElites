@@ -18,17 +18,20 @@ class EaOperators:
 		"""
 		Executes a uniform crossover between two individuals in the collection and
 		generates two offspring with different 'first parent'. Buildings are selected
-		according to the *indpb* probability, while *indgen* defines how much genetic 
+		according to the *indpb* probability, while *indgen* defines how much genetic
 		material will be used from the first parent.
 
-		:param ind1: The first individual participating in the crossover.
-		:param ind2: The second individual participating in the crossover.
-		:param indgen: The minimum amount of genetic material to be taken from
-		ind1.
-		:param indpb: Independent probability for each building polygon to be kept.
-		:returns: A tuple of two individuals.
-		"""
+		Args:
+			ind1 (Individual): The first individual participating in the crossover.
+			ind2 (Individual): The second individual participating in the crossover.
+			indgen (float): The minimum amount of genetic material to be taken from ind1.
+			indprob (float): Independent probability for each building polygon to be kept.
+			parent_ids (tuple): The ids of each individual.
+			random_genes (bool, optional): To use random genes or not. Defaults to False.
 
+		Returns:
+			offspring: Two new individual offsprings.
+		"""
 		# get geometry information from individuals
 		heights1, polygons1, colors1, centroids1, size1 = ind1.heights, ind1.polygons, ind1.colors, ind1.centroids, ind1.size
 		heights2, polygons2, colors2, centroids2, size2 = ind2.heights, ind2.polygons, ind2.colors, ind2.centroids, ind2.size
@@ -74,7 +77,7 @@ class EaOperators:
 			heights_cross_1 = np.hstack((heights1_, hts2_))
 			assert polygons_cross_1.shape[0] == colors_cross_1.shape[0] == heights_cross_1.shape[0]
 			offspring_1 = Offspring(polygons_cross_1, colors_cross_1, heights_cross_1, size1, parent_ids)
-			
+
 			# let's make offspring 2
 			# get polygons for individual 2
 			polygons2_, heights2_, centroids2_, colors2_ = polygons2[poly_ids_2], heights2[poly_ids_2], centroids2[poly_ids_2], colors2[poly_ids_2]
@@ -129,7 +132,7 @@ class EaOperators:
 			heights_cross_1 = np.hstack((heights1_, hts2_))
 			assert polygons_cross_1.shape[0] == colors_cross_1.shape[0] == heights_cross_1.shape[0]
 			offspring_1 = Offspring(polygons_cross_1, colors_cross_1, heights_cross_1, size1, parent_ids)
-			
+
 			# let's make offspring 2
 
 			# get polygons for individual 2
@@ -156,7 +159,7 @@ class EaOperators:
 			heights_cross_2 = np.hstack((heights2_, hts1_))
 			assert polygons_cross_2.shape[0] == colors_cross_2.shape[0] == heights_cross_2.shape[0]
 			offspring_2 = Offspring(polygons_cross_2, colors_cross_2, heights_cross_2, size2, parent_ids)
-			
+
 		return offspring_1, offspring_2
 
 	@staticmethod
@@ -164,14 +167,16 @@ class EaOperators:
 		"""
 		Executes an FI crossover and calculates fitness with respect to infeasibility
 
-		:param ind1: The first individual participating in the crossover.
-		:param ind2: The second individual participating in the crossover.
-		:param indgen: The minimum amount of genetic material to be taken from
-		ind1.
-		:param indpb: Independent probability for each building polygon to be kept.
-		:returns: A tuple of two individuals.
-		"""
 
+		Args:
+			ind1 (Individual): The first individual participating in the crossover.
+			ind2 (Individual): The second individual participating in the crossover.
+			indprob (float): Independent probability for each building polygon to be kept.
+			parent_ids (tuple): The ids of each individual.
+
+		Returns:
+			offspring: A new individual offspring.
+		"""
 		# get geometry information from individuals
 		heights1, polygons1, colors1, centroids1, size1 = ind1.heights, ind1.polygons, ind1.colors, ind1.centroids, ind1.size
 		heights2, polygons2, colors2, centroids2, size2 = ind2.heights, ind2.polygons, ind2.colors, ind2.centroids, ind2.size
@@ -231,20 +236,17 @@ class EaOperators:
 		Mutations are applied directly on `individual`, which is then returned.
 		Inspired from code from the DEAP library (https://github.com/DEAP/deap/blob/master/deap/tools/mutation.py).
 
-		Parameters
-		----------
-		:param individual
-			The individual to mutate.
-		:param eta: float
-			Crowding degree of the mutation.
-			A high ETA will produce mutants close to its parent,
-			a small ETA will produce offspring with more differences.
-		:param low: float
-			Lower bound of the search domain.
-		:param up: float
-			Upper bound of the search domain.
-		:param mut_pb: float
-			The probability for each item of `individual` to be mutated.
+		Args:
+			ind ([type]): The individual to mutate.
+			cmap (list): A list of RGB values representing the height range of the individual.
+			eta (float): Crowding degree of the mutation. A high ETA will produce mutants close to its parent,
+						 a small ETA will produce offspring with more differences.
+			low (float): Lower bound of the search domain.
+			up (float): Upper bound of the search domain.
+			mut_pb (float): The probability for each item of `individual` to be mutated.
+
+		Returns:
+			offspring: A mutation of the input individual.
 		"""
 		mut_heights = copy(ind.heights)
 		for i in range(len(ind.heights)):
@@ -282,24 +284,21 @@ class EaOperators:
 	@staticmethod
 	def crossover_mutation(ind1, ind2, cmap, eta: float, low: float, up: float, mut_pb: float, cross_pb: 'default'):
 		"""
-		Parameters
-		----------
-		:param ind1
-			The first individual participating in the mutation.
-		:param ind2
-			The second individual participating in the mutation.
-		:param eta: float
-			Crowding degree of the mutation.
-			A high ETA will produce mutants close to its parent,
-			a small ETA will produce offspring with more differences.
-		:param low: float
-			Lower bound of the search domain.
-		:param up: float
-			Upper bound of the search domain.
-		:param mut_pb: float
-			The probability for each item of `individual` to be mutated.
+		Similar to polynomial mutation, but with an additional crossover probability effectively exchanging genetic material between the two individuals.
+
+		Args:
+			ind1 ([type]): The first individual participating in the mutation.
+			ind2 ([type]): The second individual participating in the mutation.
+			eta (float): Crowding degree of the mutation. A high ETA will produce mutants close to its parent,
+						 a small ETA will produce offspring with more differences.
+			low (float): Lower bound of the search domain.
+			up (float): Upper bound of the search domain.
+			mut_pb (float): The probability for each item of `individual` to be mutated.
+			cross_pb (float, default): The probability for each item to be crossed over between the two individuals. Default assigns a 1/len(genome) probability.
+
+		Returns:
+			offspring: Two mutations of the input individuals.
 		"""
-		
 		mut_heights_1 = copy(ind1.heights)
 		mut_heights_2 = copy(ind2.heights)
 
