@@ -1,133 +1,163 @@
 import numpy as np
 from shapely.geometry import Polygon, mapping
-import PIL.ImageDraw as ImageDraw
-import PIL.Image as Image
-import aggdraw
+from shapely.affinity import translate
 
-class Geometry:
+#############################################################
+#############################################################
 
-	@staticmethod
-	def create_path(polygon):
-		"""
-		A function that splits a series of polygon points into an (x, y) array of coordinates.
+def create_path(polygon):
+    """
+    A function that splits a series of polygon points into an (x, y) array of coordinates.
 
-		Args:
-			polygon (array): a sequence of x, y points describing a building outline
+    Args:
+        polygon (array): a sequence of x, y points describing a building outline
 
-		Returns:
-			array: a sequence of points (x, y) defining a building outline.
-		"""
-		x_coords = polygon[0::2]
-		y_coords = polygon[1::2]
+    Returns:
+        array: a sequence of points (x, y) defining a building outline.
+    """
+    x_coords = polygon[0::2]
+    y_coords = polygon[1::2]
 
-		return np.hstack((x_coords, y_coords))
+    return np.hstack((x_coords, y_coords))
 
-	@staticmethod
-	def create_shapely_polygons(points, splits):
-		"""
-		A function that generates shapely polygons out of points and splits (indices on where to split the points) of each individual.
+#############################################################
+#############################################################
 
-		Args:
-			points (list): a list of all the points for each individual.
-			splits (list): a list of indices that show where to split the point list in order to create individual polygons.
+def create_shapely_polygons(points, splits, grid_ids):
+    """
+    A function that generates shapely polygons out of points and splits (indices on where to split the points) of each individual.
 
-		Returns:
-			array: an array of all shapely polygons (buildings) of the individual.
-		"""
-		polygons = np.array(np.vsplit(points.reshape(-1, 1), np.cumsum(splits)))[:-1]
+    Args:
+        points (list): a list of all the points for each individual.
+        splits (list): a list of indices that show where to split the point list in order to create individual polygons.
 
-		shapes = []
-		for poly in polygons:
-			path = Geometry.create_path(poly)
-			shapes.append(Polygon(path))
+    Returns:
+        array: an array of all shapely polygons (buildings) of the individual.
+    """
+    polygons = np.array(np.vsplit(points.reshape(-1, 1), np.cumsum(splits)))[:-1]
 
-		return np.array(shapes)
+    shapes = []
+    for poly in polygons:
+        path = create_path(poly)
+        shapes.append(Polygon(path))
 
-	@staticmethod
-	def find_intersections(seed_polygon, target_polygons):
-		"""
-			A function that finds intersections between a seed polygon and a list of candidate polygons.
+    return np.array(shapes)
 
-		Args:
-			seed_polygon (shapely polygon): A shapely polygon.
-			target_polygons (list): A list of shapely polygons.
+def get_features(footprints, heights, boundary=(2500, 2500), b_color="white"):
+    """
+    Calculates urban density and network features for a set of footprints and heights.
 
-		Returns:
-			array: The intersection matrix between the seed polygon and all individual target polygons.
-		"""
-		intersect_booleans = []
-		for _, poly in enumerate(target_polygons):
-			intersect_booleans.append(seed_polygon.intersects(poly))
+    Args:
+        footprints (list): A list of floor areas for each building of an individual.
+        heights ([type]): A list of heights for each building of an individual.
+        boundary (tuple, optional): The size of each individual in pixels. Defaults to (2500, 2500).
+        b_color (str, optional): The background color (ground color) for each individual. Defaults to "white".
 
-		return intersect_booleans
+    Returns:
+        float: floor space index (FSI), calculated using -> gross_floor_area / area_of_aggregation
+        float: ground space index (GSI), calculated using -> footprint / area_of_aggregation
+        float: oper space ratio (OSR), calculated using -> (1-GSI)/FSI
+        float: building height (L), calculated using -> FSI/GSI
+        float: tare (T), calculated using -> (area_of_aggregation - footprint) / area_of_aggregation
+    """
+    #calculate aggregation A
+    area_of_aggregation = boundary[0] * boundary[1]
+    #calculate GFA
+    gross_floor_area = np.multiply(footprints, np.ceil(heights/4)).sum()
+    total_footprint = np.array(footprints).sum()
 
-	@staticmethod
-	def centroids(polygons):
-		"""
-			A function that calculates the centroids of a collection of shapely polygons.
+    fsi = gross_floor_area / area_of_aggregation
+    gsi = total_footprint / area_of_aggregation
+    osr = (1-gsi) / fsi
+    mean_height = fsi / gsi
+    tare = (area_of_aggregation - total_footprint) / area_of_aggregation
 
-		Args:
-			polygons (list): A list of shapely polygons.
+    return fsi, gsi, osr, mean_height, tare
 
-		Returns:
-			list: a list of centroids for all polygons.
-		"""
-		centroids = []
-		for polygon in polygons:
-			xy = polygon.centroid.xy
-			coords = np.dstack((xy[0], xy[1])).flatten()
-			centroids.append(coords)
+def centroids(polygons):
+    """
+        A function that calculates the centroids of a collection of shapely polygons.
 
-		return centroids
+    Args:
+        polygons (list): A list of shapely polygons.
 
+    Returns:
+        list: a list of centroids for all polygons.
+    """
+    centroids = []
+    for polygon in polygons:
+        xy = polygon.centroid.xy
+        coords = np.dstack((xy[0], xy[1])).flatten()
+        centroids.append(coords)
 
-	@staticmethod
-	def get_features(footprints, heights, boundary=(512, 512), b_color="white"):
-		"""
-		Calculates urban density and network features for a set of footprints and heights.
+    return centroids
 
-		Args:
-			footprints (list): A list of floor areas for each building of an individual.
-			heights ([type]): A list of heights for each building of an individual.
-			boundary (tuple, optional): The size of each individual in pixels. Defaults to (512, 512).
-			b_color (str, optional): The background color (ground color) for each individual. Defaults to "white".
+def find_intersections(seed_polygon, target_polygons):
+    """
+        A function that finds intersections between a seed polygon and a list of candidate polygons.
 
-		Returns:
-			float: floor space index (FSI), calculated using -> gross_floor_area / area_of_aggregation
-			float: ground space index (GSI), calculated using -> footprint / area_of_aggregation
-			float: oper space ratio (OSR), calculated using -> (1-GSI)/FSI
-			float: building height (L), calculated using -> FSI/GSI
-			float: tare (T), calculated using -> (area_of_aggregation - footprint) / area_of_aggregation
-		"""
-		#calculate aggregation A
-		area_of_aggregation = boundary[0] * boundary[1]
-		#calculate GFA
-		gross_floor_area = np.multiply(footprints, np.ceil(heights/4)).sum()
-		total_footprint = np.array(footprints).sum()
+    Args:
+        seed_polygon (shapely polygon): A shapely polygon.
+        target_polygons (list): A list of shapely polygons.
 
-		fsi = gross_floor_area / area_of_aggregation
-		gsi = total_footprint / area_of_aggregation
-		osr = (1-gsi) / fsi
-		mean_height = fsi / gsi
-		tare = (area_of_aggregation - total_footprint) / area_of_aggregation
+    Returns:
+        array: The intersection matrix between the seed polygon and all individual target polygons.
+    """
+    intersect_booleans = []
+    for _, poly in enumerate(target_polygons):
+        intersect_booleans.append(seed_polygon.intersects(poly))
 
-		return fsi, gsi, osr, mean_height, tare
+    return intersect_booleans
 
-	@staticmethod
-	def draw_polygons(polygons, colors, im_size=(512,512), b_color="white", fpath=None):
-	    image = Image.new("RGB", im_size, color="white")
-	    draw = aggdraw.Draw(image)
+def find_containments(seed_polygon, target_polygons):
+    """
+        A function that finds intersections between a seed polygon and a list of candidate polygons.
 
-	    for poly, color in zip(polygons, colors):
-	        # get x, y sequence of coordinates for each polygon
-	        xy = poly.exterior.xy
-	        coords = np.dstack((xy[0], xy[1])).flatten()
-	        # create a brush according to each polygon color
-	        brush = aggdraw.Brush((color[0], color[1], color[2]), opacity=255)
-	        draw.polygon(coords, brush)
+    Args:
+        seed_polygon (shapely polygon): A shapely polygon.
+        target_polygons (list): A list of shapely polygons.
 
-	    image = Image.frombytes("RGB", im_size, draw.tobytes())
-	    if(fpath):
-	        image.save(fpath)
+    Returns:
+        array: The intersection matrix between the seed polygon and all individual target polygons.
+    """
+    contain_booleans = []
+    for _, poly in enumerate(target_polygons):
+        contain_booleans.append(seed_polygon.contains(poly))
 
-	    return draw, image
+    return contain_booleans
+
+def move_polygons(polygons, from_grid, to_grid=None):
+    """
+    A function that moves polygons to the origin bounding box (0, 250, 250, 250)
+    """
+
+    if(to_grid):
+        x_displacement = (from_grid // 10) - (to_grid // 10)
+        y_displacement = (from_grid % 10) - (to_grid % 10)
+    else:
+        x_displacement = from_grid // 10
+        y_displacement = from_grid % 10
+
+    moved_polygons = []
+    for poly in polygons:
+        moved_polygons.append(translate(poly, xoff=-x_displacement*250, yoff=-y_displacement*250))
+
+    return moved_polygons
+
+def move_neighbour_polygons(polygons, from_grid, to_grid=None):
+    """
+    A function that moves a neighbourhood to the origin bounding box (0, 250, 250, 250)
+    """
+
+    if(to_grid):
+        x_displacement = (from_grid // 10) - (to_grid // 10)
+        y_displacement = (from_grid % 10) - (to_grid % 10)
+    else:
+        x_displacement = from_grid // 10 - 1
+        y_displacement = from_grid % 10 - 1
+
+    moved_polygons = []
+    for poly in polygons:
+        moved_polygons.append(translate(poly, xoff=-x_displacement*250, yoff=-y_displacement*250))
+
+    return moved_polygons

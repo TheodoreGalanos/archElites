@@ -1,374 +1,160 @@
-from random import randrange, uniform, sample, random
 from copy import copy
+from random import random, randrange, uniform, sample
 import math
+from math import ceil, floor
 import numpy as np
 
-from geometry import Geometry as geom
-from population import Offspring
-from utils import Utilities as util
-
-class EaOperators:
-
-	#################################################
-	# CROSSOVER
-	#################################################
-
-	@staticmethod
-	def uniform_crossover_geometry(ind1, ind2, indgen, indprob, parent_ids, random_genes=False):
-		"""
-		Executes a uniform crossover between two individuals in the collection and
-		generates two offspring with different 'first parent'. Buildings are selected
-		according to the *indpb* probability, while *indgen* defines how much genetic
-		material will be used from the first parent.
-
-		Args:
-			ind1 (Individual): The first individual participating in the crossover.
-			ind2 (Individual): The second individual participating in the crossover.
-			indgen (float): The minimum amount of genetic material to be taken from ind1.
-			indprob (float): Independent probability for each building polygon to be kept.
-			parent_ids (tuple): The ids of each individual.
-			random_genes (bool, optional): To use random genes or not. Defaults to False.
-
-		Returns:
-			offspring: Two new individual offsprings.
-		"""
-		# get geometry information from individuals
-		heights1, polygons1, colors1, centroids1, size1 = ind1.heights, ind1.polygons, ind1.colors, ind1.centroids, ind1.size
-		heights2, polygons2, colors2, centroids2, size2 = ind2.heights, ind2.polygons, ind2.colors, ind2.centroids, ind2.size
-
-		#keep a minimum amount of genetic material from parent 1, according to indgen
-		#some hacky stuff to avoid weird or failed crossover when individuals have only a few buildings
-		if(len(polygons2) < 4 or len(polygons1) < 4):
-
-			# get ids for individual 1
-			if(len(polygons1) > 4):
-				poly_ids_1 = util.get_poly_ids(polygons1, random_genes, indgen)
-			else:
-				poly_ids_1 = [randrange(0, len(polygons1))]
-
-			# get ids for individual 2
-			if(len(polygons2) > 4):
-				poly_ids_2 = util.get_poly_ids(polygons2, random_genes, indgen)
-			else:
-				poly_ids_2 = [randrange(0, len(polygons2))]
-
-			# let's make offspring 1
-			# get polygons for individual 1
-			polygons1_, heights1_, centroids1_, colors1_ = polygons1[poly_ids_1], heights1[poly_ids_1], centroids1[poly_ids_1], colors1[poly_ids_1]
-			assert polygons1_.shape[0] == heights1_.shape[0] == centroids1_.shape[0] == colors1_.shape[0]
-			assert len(polygons1_.shape) == len(heights1_.shape)
-			assert len(centroids1_.shape) == len(colors1_.shape)
-
-			# create the first offspring
-			intersection_matrix = np.zeros((polygons1_.shape[0], len(polygons2)))
-			for k, p in enumerate(polygons1_):
-				intersection_matrix[k, :] = geom.find_intersections(p, polygons2)
-
-			bools = np.sum(intersection_matrix, axis=0).astype(bool)
-			mask = ~bools
-			p2 = polygons2[mask]
-			hts2_ = heights2[mask]
-			colors2_ = colors2[mask]
-			assert p2.shape[0] == hts2_.shape[0] == colors2_.shape[0]
-			assert len(p2.shape) == len(hts2_.shape)
-
-			polygons_cross_1 = np.hstack((polygons1_, p2))
-			colors_cross_1 = np.vstack((colors1_, colors2_))
-			heights_cross_1 = np.hstack((heights1_, hts2_))
-			assert polygons_cross_1.shape[0] == colors_cross_1.shape[0] == heights_cross_1.shape[0]
-			offspring_1 = Offspring(polygons_cross_1, colors_cross_1, heights_cross_1, size1, parent_ids)
-
-			# let's make offspring 2
-			# get polygons for individual 2
-			polygons2_, heights2_, centroids2_, colors2_ = polygons2[poly_ids_2], heights2[poly_ids_2], centroids2[poly_ids_2], colors2[poly_ids_2]
-			assert polygons2_.shape[0] == heights2_.shape[0] == centroids2_.shape[0] == colors2_.shape[0]
-			assert len(polygons2_.shape) == len(heights2_.shape)
-			assert len(centroids2_.shape) == len(colors2_.shape)
-
-			# create the second offspring
-			intersection_matrix = np.zeros((polygons2_.shape[0], len(polygons1)))
-			for k, p in enumerate(polygons2_):
-				intersection_matrix[k, :] = geom.find_intersections(p, polygons1)
-
-			bools = np.sum(intersection_matrix, axis=0).astype(bool)
-			mask = ~bools
-			p1 = polygons1[mask]
-			hts1_ = heights1[mask]
-			colors1_ = colors1[mask]
-			assert p1.shape[0] == hts1_.shape[0] == colors1_.shape[0]
-			assert len(p1.shape) == len(hts1_.shape)
-
-			polygons_cross_2 = np.hstack((polygons2_, p1))
-			colors_cross_2 = np.vstack((colors2_, colors1_))
-			heights_cross_2 = np.hstack((heights2_, hts1_))
-			assert polygons_cross_2.shape[0] == colors_cross_2.shape[0] == heights_cross_2.shape[0]
-			offspring_2 = Offspring(polygons_cross_2, colors_cross_2, heights_cross_2, size2, parent_ids)
-		else:
-			poly_ids_1 = util.get_poly_ids(polygons1, random_genes, indgen)
-			poly_ids_2 = util.get_poly_ids(polygons2, random_genes, indgen)
-
-			# let's make offspring 1
-			# get polygons for individual 1
-			polygons1_, heights1_, centroids1_, colors1_ = polygons1[poly_ids_1], heights1[poly_ids_1], centroids1[poly_ids_1], colors1[poly_ids_1]
-			assert polygons1_.shape[0] == heights1_.shape[0] == centroids1_.shape[0] == colors1_.shape[0]
-			assert len(polygons1_.shape) == len(heights1_.shape)
-			assert len(centroids1_.shape) == len(colors1_.shape)
-
-			# create the first offspring
-			intersection_matrix = np.zeros((polygons1_.shape[0], len(polygons2)))
-			for k, p in enumerate(polygons1_):
-				intersection_matrix[k, :] = geom.find_intersections(p, polygons2)
-
-			bools = np.sum(intersection_matrix, axis=0).astype(bool)
-			mask = ~bools
-			p2 = polygons2[mask]
-			hts2_ = heights2[mask]
-			colors2_ = colors2[mask]
-			assert p2.shape[0] == hts2_.shape[0] == colors2_.shape[0]
-			assert len(p2.shape) == len(hts2_.shape)
-
-			polygons_cross_1 = np.hstack((polygons1_, p2))
-			colors_cross_1 = np.vstack((colors1_, colors2_))
-			heights_cross_1 = np.hstack((heights1_, hts2_))
-			assert polygons_cross_1.shape[0] == colors_cross_1.shape[0] == heights_cross_1.shape[0]
-			offspring_1 = Offspring(polygons_cross_1, colors_cross_1, heights_cross_1, size1, parent_ids)
-
-			# let's make offspring 2
-
-			# get polygons for individual 2
-			polygons2_, heights2_, centroids2_, colors2_ = polygons2[poly_ids_2], heights2[poly_ids_2], centroids2[poly_ids_2], colors2[poly_ids_2]
-			assert polygons2_.shape[0] == heights2_.shape[0] == centroids2_.shape[0] == colors2_.shape[0]
-			assert len(polygons2_.shape) == len(heights2_.shape)
-			assert len(centroids2_.shape) == len(colors2_.shape)
-
-			# create the second offspring
-			intersection_matrix = np.zeros((polygons2_.shape[0], len(polygons1)))
-			for k, p in enumerate(polygons2_):
-				intersection_matrix[k, :] = geom.find_intersections(p, polygons1)
-
-			bools = np.sum(intersection_matrix, axis=0).astype(bool)
-			mask = ~bools
-			p1 = polygons1[mask]
-			hts1_ = heights1[mask]
-			colors1_ = colors1[mask]
-			assert p1.shape[0] == hts1_.shape[0] == colors1_.shape[0]
-			assert len(p1.shape) == len(hts1_.shape)
-
-			polygons_cross_2 = np.hstack((polygons2_, p1))
-			colors_cross_2 = np.vstack((colors2_, colors1_))
-			heights_cross_2 = np.hstack((heights2_, hts1_))
-			assert polygons_cross_2.shape[0] == colors_cross_2.shape[0] == heights_cross_2.shape[0]
-			offspring_2 = Offspring(polygons_cross_2, colors_cross_2, heights_cross_2, size2, parent_ids)
-
-		return offspring_1, offspring_2
-
-	@staticmethod
-	def feasible_infeasible_crossover(ind1, ind2, indprob, parent_ids):
-		"""
-		Executes an FI crossover and calculates fitness with respect to infeasibility
+from population import OffspringGrid, IndividualGrid, NeighbourGrid
+from utilities import height_to_color, get_poly_ids
+from geometry import find_intersections, find_containments
 
 
-		Args:
-			ind1 (Individual): The first individual participating in the crossover.
-			ind2 (Individual): The second individual participating in the crossover.
-			indprob (float): Independent probability for each building polygon to be kept.
-			parent_ids (tuple): The ids of each individual.
+def polynomial_bounded(ind, cmap, eta: float, low: float, up: float, mut_pb: float):
+    """Return a polynomial bounded mutation, as defined in the original NSGA-II paper by Deb et al.
+    Mutations are applied directly on `individual`, which is then returned.
+    Inspired from code from the DEAP library (https://github.com/DEAP/deap/blob/master/deap/tools/mutation.py).
 
-		Returns:
-			offspring: A new individual offspring.
-		"""
-		# get geometry information from individuals
-		heights1, polygons1, colors1, centroids1, size1 = ind1.heights, ind1.polygons, ind1.colors, ind1.centroids, ind1.size
-		heights2, polygons2, colors2, centroids2, size2 = ind2.heights, ind2.polygons, ind2.colors, ind2.centroids, ind2.size
-		#print("Individual 1 has {} buildings".format(len(polygons1)))
-		#print("Individual 2 has {} buildings".format(len(polygons2)))
+    Args:
+        ind ([type]): The individual to mutate.
+        cmap (list): A list of RGB values representing the height range of the individual.
+        eta (float): Crowding degree of the mutation. A high ETA will produce mutants close to its parent,
+                     a small ETA will produce offspring with more differences.
+        low (float): Lower bound of the search domain.
+        up (float): Upper bound of the search domain.
+        mut_pb (float): The probability for each item of `individual` to be mutated.
 
-		#select from ind1
-		probs = np.array([uniform(0,1) for j in range(0, len(polygons1))])
-		selection = [probs < indprob]
-		poly_ids = np.arange(0, len(polygons1))[tuple(selection)]
-		p1 = polygons1[poly_ids]
-		hts1_ = heights1.reshape(-1, 1)[poly_ids]
-		centroids1_ = centroids1[poly_ids]
-		colors1_ = colors1[poly_ids]
-		assert p1.shape[0] == hts1_.shape[0] == centroids1_.shape[0] == colors1_.shape[0]
-		assert len(p1.shape) == len(hts1_.shape)
-		assert len(centroids1_.shape) == len(colors1_.shape)
+    Returns:
+        offspring: A mutation of the input individual.
+    """
+    mut_heights = copy(ind.heights)
+    for i in range(len(ind.heights)):
+        if random() < mut_pb:
+            x = ind.heights[i].astype(float)
+            if(x<low):
+                x=low
+            if(x>up):
+                x=up
+            delta_1 = (x - low) / (up - low)
+            delta_2 = (up - x) / (up - low)
+            rand = random()
+            mut_pow = 1. / (eta + 1.)
 
-		#select from ind2
-		probs = np.array([uniform(0,1) for j in range(0, len(polygons2))])
-		selection = [probs < indprob]
-		poly_ids = np.arange(0, len(polygons2))[tuple(selection)]
-		p2 = np.array(polygons2)[poly_ids]
-		hts2_ = heights2.reshape(-1, 1)[poly_ids]
-		centroids2_ = centroids2[poly_ids]
-		colors2_ = colors2[poly_ids]
-		assert p2.shape[0] == hts2_.shape[0] == centroids2_.shape[0] == colors2_.shape[0]
+            if rand < 0.5:
+                xy = 1. - delta_1
+                val = 2. * rand + (1. - 2. * rand) * xy**(eta + 1.)
+                delta_q = val**mut_pow - 1.
+            else:
+                xy = 1. - delta_2
+                val = 2. * (1. - rand) + 2. * (rand - 0.5) * xy**(eta + 1.)
+                delta_q = 1. - val**mut_pow
 
-		# join material from both individuals
-		p_cross = np.hstack((p1, p2))
-		hts_cross = np.vstack((hts1_, hts2_))
-		colors_cross = np.vstack((colors1_, colors2_))
-		#keep a minimum amount of genetic material from parent 1, according to indgen
+            x += delta_q * (up - low)
+            x = min(max(x, low), up)
+            if(math.isnan(x)):
+                x = randrange(low, up)
+            mut_heights[i] = x
 
-		# calculate feasibility fitness through self-intersection
-		intersection_matrix = np.zeros((len(p_cross), len(p_cross)))
-		for k, p in enumerate(p_cross):
-		    intersection_matrix[k, :] = geom.find_intersections(p, p_cross)
-		#remove self-intersection for each polygon
-		intersection_events = np.sum(intersection_matrix, axis=0)-1
-		fi_fitness = np.where(intersection_events>0)[0].shape[0]/intersection_events.shape[0]
+    mut_colors = np.array([height_to_color(cmap, height) for height in mut_heights]).astype(int)
+    offspring = OffspringGrid(ind.polygons, mut_colors, mut_heights, ind.grid_ids, ind.status, ind.building_ids,
+                              ind.added, ind.dropped)
+    return offspring
 
-		offspring = Offspring(p_cross, colors_cross, hts_cross, size1, parent_ids)
-		offspring.fi_fitness = fi_fitness
+def uniform_crossover_geometry(location, indgen:float, grid_id1=None, grid_id2=None, random=True):
 
-		return offspring
+    # Get two random individuals from the location
+    if(random):
+        # Create the 2 individual grids
+        grid_ids = sample(list(location.grid_occupancy), 2)
+        ind1 = IndividualGrid(location, grid_ids[0])
+        ind2 = IndividualGrid(location, grid_ids[1])
+        neighbourhood = NeighbourGrid(location, grid_ids[0])
+    else:
+        ind1 = IndividualGrid(location, grid_id1)
+        ind2 = IndividualGrid(location, grid_id2)
+        neighbourhood = NeighbourGrid(location, grid_id1)
 
+    # Create an offspring by doing crossover of the selected polygons from the 1st grid to the second
+    if(np.sum(ind1.status) == 0):
+        offspring = None
+        #return "Seed individual had empty genome"
+    else:
+        if(np.sum(ind1.status) < 10):
+            if(np.sum(ind1.status)*indgen <= 1):
+                poly_ids_1 = list(np.where(ind1.status == 1)[0])
+                poly_ids_1.extend(np.where(ind1.status == 0)[0])
+            else:
+                rnd = randrange(1, max(1, ceil(np.sum(ind1.status)* indgen)))
+                poly_ids_1 = sample(list(np.where(ind1.status == 1)[0]), rnd)
+                poly_ids_1.extend(np.where(ind1.status == 0)[0])
+        else:
+            poly_ids_1 = get_poly_ids(ind1.polygons, ind1.status, indgen)
+            poly_ids_1.extend(np.where(ind1.status == 0)[0])
 
+        polygons1_, heights1_, centroids1_, colors1_, status1_, ids1_ = np.array(ind1.polygons)[poly_ids_1], \
+                                                                        np.array(ind1.heights)[poly_ids_1], \
+                                                                        np.array(ind1.centroids)[poly_ids_1], \
+                                                                        np.array(ind1.colors)[poly_ids_1], \
+                                                                        np.array(ind1.status)[poly_ids_1], \
+                                                                        ind1.building_ids[0][poly_ids_1]
 
-	#################################################
-	# MUTATION
-	#################################################
+        dropped = list(set(ind1.building_ids[0]).difference(ids1_))
 
-	@staticmethod
-	def polynomial_bounded(ind, cmap, eta: float, low: float, up: float, mut_pb: float):
-		"""Return a polynomial bounded mutation, as defined in the original NSGA-II paper by Deb et al.
-		Mutations are applied directly on `individual`, which is then returned.
-		Inspired from code from the DEAP library (https://github.com/DEAP/deap/blob/master/deap/tools/mutation.py).
+        assert polygons1_.shape[0] == heights1_.shape[0] == centroids1_.shape[0] == colors1_.shape[0] == ids1_.shape[0]
+        assert len(polygons1_.shape) == len(heights1_.shape) == len(ids1_.shape)
 
-		Args:
-			ind ([type]): The individual to mutate.
-			cmap (list): A list of RGB values representing the height range of the individual.
-			eta (float): Crowding degree of the mutation. A high ETA will produce mutants close to its parent,
-						 a small ETA will produce offspring with more differences.
-			low (float): Lower bound of the search domain.
-			up (float): Upper bound of the search domain.
-			mut_pb (float): The probability for each item of `individual` to be mutated.
+        # Grab only active polygons from 2nd grid location
+        active_elements = np.where(ind2.status == 1)[0]
+        active_polygons = np.array(ind2.polygons)[active_elements]
 
-		Returns:
-			offspring: A mutation of the input individual.
-		"""
-		mut_heights = copy(ind.heights)
-		for i in range(len(ind.heights)):
-			if random() < mut_pb:
-				x = ind.heights[i].astype(float)
-				if(x<low):
-					x=low
-				if(x>up):
-					x=up
-				delta_1 = (x - low) / (up - low)
-				delta_2 = (up - x) / (up - low)
-				rand = random()
-				mut_pow = 1. / (eta + 1.)
+        # Find intersections of the active polygons with the buildings of the selected individual
+        intersection_matrix = np.zeros((polygons1_.shape[0], active_polygons.shape[0]))
+        for k, p in enumerate(active_polygons):
+            intersection_matrix[:, k] = find_intersections(p, polygons1_)
+        bools1a = np.sum(intersection_matrix, axis=0).astype(bool)
 
-				if rand < 0.5:
-					xy = 1. - delta_1
-					val = 2. * rand + (1. - 2. * rand) * xy**(eta + 1.)
-					delta_q = val**mut_pow - 1.
-				else:
-					xy = 1. - delta_2
-					val = 2. * (1. - rand) + 2. * (rand - 0.5) * xy**(eta + 1.)
-					delta_q = 1. - val**mut_pow
+        # Find containments of the active polygons with the buildings of the selected individual
+        contain_matrix = np.zeros((polygons1_.shape[0], active_polygons.shape[0]))
+        for k, p in enumerate(active_polygons):
+            contain_matrix[:, k] = find_containments(p, polygons1_)
+        bools1b = np.sum(contain_matrix, axis=0).astype(bool)
 
-				x += delta_q * (up - low)
-				x = min(max(x, low), up)
-				if(math.isnan(x)):
-					x = randrange(low, up)
-				mut_heights[i] = x
+        # Find intersections of those polygons with the buildings in the neighbourhood of the selected individual
+        intersection_matrix = np.zeros((len(neighbourhood.polygons), active_polygons.shape[0]))
+        for k, p in enumerate(active_polygons):
+            intersection_matrix[:, k] = find_intersections(p, neighbourhood.polygons)
+        bools2a = np.sum(intersection_matrix, axis=0).astype(bool)
 
-		mut_colors = np.array([util.height_to_color(cmap, height) for height in mut_heights])
-		offspring = Offspring(ind.polygons, mut_colors, mut_heights, ind.size, ind.parent_ids)
+        # Find containments of the active polygons with the buildings of the selected individual
+        contain_matrix = np.zeros((len(neighbourhood.polygons), active_polygons.shape[0]))
+        for k, p in enumerate(active_polygons):
+            contain_matrix[:, k] = find_containments(p, neighbourhood.polygons)
+        bools2b = np.sum(contain_matrix, axis=0).astype(bool)
 
-		return offspring
+        bools = bools1a | bools1b | bools2a | bools2b
 
-	@staticmethod
-	def crossover_mutation(ind1, ind2, cmap, eta: float, low: float, up: float, mut_pb: float, cross_pb: 'default'):
-		"""
-		Similar to polynomial mutation, but with an additional crossover probability effectively exchanging genetic material between the two individuals.
+        mask = ~bools
+        p2 = np.array(ind2.polygons)[active_elements][mask]
+        hts2_ = ind2.heights[active_elements][mask]
+        colors2_ = ind2.colors[active_elements][mask]
+        status2_ = ind2.status[active_elements][mask]
+        ids2_ = ind2.building_ids[0][active_elements][mask]
 
-		Args:
-			ind1 ([type]): The first individual participating in the mutation.
-			ind2 ([type]): The second individual participating in the mutation.
-			eta (float): Crowding degree of the mutation. A high ETA will produce mutants close to its parent,
-						 a small ETA will produce offspring with more differences.
-			low (float): Lower bound of the search domain.
-			up (float): Upper bound of the search domain.
-			mut_pb (float): The probability for each item of `individual` to be mutated.
-			cross_pb (float, default): The probability for each item to be crossed over between the two individuals. Default assigns a 1/len(genome) probability.
+        added = ids2_
 
-		Returns:
-			offspring: Two mutations of the input individuals.
-		"""
-		mut_heights_1 = copy(ind1.heights)
-		mut_heights_2 = copy(ind2.heights)
+        assert p2.shape[0] == hts2_.shape[0] == colors2_.shape[0] == status2_.shape[0] == ids2_.shape[0]
+        assert len(p2.shape) == len(hts2_.shape)
 
-		# crossover first
-		if (cross_pb == 'default'):
-			for i in range(len(ind1.heights)):
-				if (random() < 1/len(ind1.heights)):
-					mut_heights_1[i] = ind2.heights[randrange(0, len(ind2.heights)-1)]
+        polygons_cross_1 = np.hstack((polygons1_, p2))
+        colors_cross_1 = np.vstack((colors1_, colors2_))
+        heights_cross_1 = np.hstack((heights1_, hts2_))
+        status_cross_1 = np.hstack((status1_, status2_))
+        ids_cross_1 = np.hstack((ids1_, ids2_))
 
-			for i in range(len(ind2.heights)):
-				if (random() < 1/len(ind2.heights)):
-					mut_heights_2[i] = ind1.heights[random.randrange(0, len(ind1.heights)-1)]
-		else:
-			for i in range(len(ind1.heights)):
-				if (random() < cross_pb):
-					mut_heights_1[i] = ind2.heights[random.randrange(0, len(ind2.heights)-1)]
+        assert polygons_cross_1.shape[0] == colors_cross_1.shape[0] == heights_cross_1.shape[0] == status_cross_1.shape[0] \
+                                                                                        == ids_cross_1.shape[0]
 
-			for i in range(len(ind2.heights)):
-				if (random() < cross_pb):
-					mut_heights_2[i] = ind1.heights[randrange(0, len(ind1.heights)-1)]
+        grid_ids = [ind1.grid_id, ind2.grid_id]
 
-		# mutate after
-		for i in range(len(ind1.heights)):
-			if (random() < mut_pb):
-				x = ind1.heights[i].astype(float)
-				delta_1 = (x - low) / (up - low)
-				delta_2 = (up - x) / (up - low)
-				rand = random()
-				mut_pow = 1. / (eta + 1.)
-
-				if rand < 0.5:
-					xy = 1. - delta_1
-					val = 2. * rand + (1. - 2. * rand) * xy**(eta + 1.)
-					delta_q = val**mut_pow - 1.
-				else:
-					xy = 1. - delta_2
-					val = 2. * (1. - rand) + 2. * (rand - 0.5) * xy**(eta + 1.)
-					delta_q = 1. - val**mut_pow
-
-				x += delta_q * (up - low)
-				x = min(max(x, low), up)
-				mut_heights_1[i] = x
-
-		# mutate after
-		for i in range(len(ind2.heights)):
-			if (random() < mut_pb):
-				x = ind2.heights[i].astype(float)
-				delta_1 = (x - low) / (up - low)
-				delta_2 = (up - x) / (up - low)
-				rand = random()
-				mut_pow = 1. / (eta + 1.)
-
-				if rand < 0.5:
-					xy = 1. - delta_1
-					val = 2. * rand + (1. - 2. * rand) * xy**(eta + 1.)
-					delta_q = val**mut_pow - 1.
-				else:
-					xy = 1. - delta_2
-					val = 2. * (1. - rand) + 2. * (rand - 0.5) * xy**(eta + 1.)
-					delta_q = 1. - val**mut_pow
-
-				x += delta_q * (up - low)
-				x = min(max(x, low), up)
-				mut_heights_2[i] = x
-
-
-		mut_colors_1 = np.array([util.height_to_color(cmap, height) for height in mut_heights_1]).astype(int)
-		mut_colors_2 = np.array([util.height_to_color(cmap, height) for height in mut_heights_2]).astype(int)
-
-		offspring_1 = Offspring(ind1.polygons, mut_colors_1, mut_heights_1, ind1.size, ind1.parent_ids)
-		offspring_2 = Offspring(ind2.polygons, mut_colors_2, mut_heights_2, ind2.size, ind2.parent_ids)
-
-		return offspring_1, offspring_2
+        offspring = OffspringGrid(polygons_cross_1, colors_cross_1, heights_cross_1, grid_ids, status_cross_1,
+                                    ids_cross_1, added, dropped)
+        return offspring
